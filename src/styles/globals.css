@@ -1,26 +1,44 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* 
+  As variáveis CSS globais são menos necessárias quando se usa Tailwind consistentemente,
+  pois as classes utilitárias já aplicam os valores do tailwind.config.js.
+  No entanto, se precisar de variáveis CSS para casos específicos (ex: JS interop),
+  defina-as com valores literais aqui, espelhando seu tailwind.config.ts.
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+  Exemplo:
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-brandBackground: #0D0D0D; 
+    --color-brandText: #E0E0E0;
+    --font-sans-family: "Inter", sans-serif; 
+    --font-display-family: "Plus Jakarta Sans", sans-serif;
+    /* Defina --color-primary-rgb para a animação pulseGlow funcionar via CSS var */
+    --color-primary-rgb: 0, 229, 255; /* Corresponde a brandPrimary */
   }
-}
+*/
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-brandBackground text-brandText font-sans antialiased;
+  /* Adiciona comportamento de rolagem suave */
+  scroll-behavior: smooth;
 }
+
+/* Estilos de seleção personalizados para combinar com a estética Lusion */
+::selection {
+  @apply bg-brandPrimary text-brandBackground;
+}
+
+/* Opcional: Estilos globais para cabeçalhos se não forem tratados por @tailwindcss/typography ou componentes específicos */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display;
+}
+
+/* Garante que os links tenham um estilo base consistente, se necessário, embora muitas vezes tratados por componentes */
+a {
+  @apply text-brandPrimary hover:text-brandPrimaryDark transition-colors duration-300;
+}
+
+/* Adicione quaisquer outros estilos globais ou redefinições aqui, se necessário */
+

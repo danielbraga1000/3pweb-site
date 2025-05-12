@@ -1,7 +1,11 @@
+"use client";
+
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "@/styles/globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import PageTransitionLayout from "@/components/layout/PageTransitionLayout";
+import { ReactLenis } from "@studio-freight/react-lenis"; // Import ReactLenis
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,11 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${plusJakartaSans.variable}`}>
-      <body className="bg-background text-text font-sans">
-        <Navbar />
-        <main>{children}</main>
-        <Footer />
+    <html lang="pt-BR" className={`${inter.variable} ${plusJakartaSans.variable}`}>
+      <body className="bg-brandBackground text-brandText font-sans antialiased">
+        <ReactLenis root options={{ lerp: 0.07, duration: 1.2, smoothTouch: true }}> {/* Wrap with ReactLenis */}
+          <Navbar />
+          <main>
+            <PageTransitionLayout>{children}</PageTransitionLayout>
+          </main>
+          <Footer />
+        </ReactLenis>
       </body>
     </html>
   );
