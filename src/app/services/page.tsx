@@ -1,75 +1,132 @@
 "use client";
 
-import React, { Suspense, useRef, useEffect, useState } from 'react';
-import { Canvas } from '@react-three/fiber'; // Removed useFrame
-import { Stars } from '@react-three/drei'; // Removed OrbitControls, DreiText, Html
-// Removed useLenis as it's not used in this file
+import React, { Suspense, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Canvas } from '@react-three/fiber';
+import { Stars, TorusKnot } from '@react-three/drei'; // Added TorusKnot for potential use
 import gsap from 'gsap';
-import ScrollTrigger from 'gsap/ScrollTrigger';
-import Image from 'next/image'; // Using Next.js Image component
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { SplitText } from 'gsap/SplitText';
+// import Lenis from '@studio-freight/lenis'; // Assuming Lenis is integrated elsewhere or will be
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, SplitText);
 
-// Placeholder for a subtle 3D element or SVG animation
-const AnimatedServiceIcon = ({ iconType }: { iconType: string }) => {
-  // In a real scenario, this would be a more complex SVG or a simple Three.js component
-  let pathData = "M13 10V3L4 14h7v7l9-11h-7z"; // Default lightning bolt
-  if (iconType === 'strategy') pathData = "M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"; // Placeholder for strategy (GitHub icon)
-  if (iconType === 'traffic') pathData = "M12 1v22m-6-6l6 6 6-6"; // Placeholder for traffic (arrow)
-  if (iconType === 'seo') pathData = "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"; // Placeholder for SEO (magnifying glass)
-
-  return (
-    <svg className="w-12 h-12 text-accent group-hover:text-primary transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={pathData}></path>
-    </svg>
-  );
-};
-
-interface ServiceCardProps {
+interface ServiceShowcaseProps {
   title: string;
   description: string;
-  iconType: string;
+  benefits: string[];
   imageSrc: string;
+  imageAlt: string;
+  learnMoreLink?: string;
+  index: number; // To alternate layouts or animations
+  isFeatured?: boolean;
 }
 
-const ServiceCard: React.FC<ServiceCardProps> = ({ title, description, iconType, imageSrc }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
+const ServiceShowcaseSection: React.FC<ServiceShowcaseProps> = ({
+  title,
+  description,
+  benefits,
+  imageSrc,
+  imageAlt,
+  learnMoreLink = "#",
+  index,
+  isFeatured
+}) => {
+  const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!cardRef.current) return;
-    gsap.fromTo(cardRef.current, 
-      { opacity: 0, y: 50 }, 
-      {
-        opacity: 1, y: 0, duration: 0.8, ease: "power3.out",
+    if (sectionRef.current) {
+      const tl = gsap.timeline({
         scrollTrigger: {
-          trigger: cardRef.current,
-          start: "top 85%",
-          toggleActions: "play none none none"
+          trigger: sectionRef.current,
+          start: "top 70%", // Animate when 70% of the section is in view
+          end: "bottom 30%",
+          toggleActions: "play none none reverse",
+          // markers: true, // for debugging
+        }
+      });
+
+      const imageElement = sectionRef.current.querySelector(".service-image-container");
+      const textElements = sectionRef.current.querySelectorAll(".service-text-content > *");
+
+      tl.fromTo(sectionRef.current, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" })
+        .fromTo(imageElement, 
+          { opacity: 0, [index % 2 === 0 ? 'x' : 'x']: index % 2 === 0 ? -100 : 100, scale: 1.1 },
+          { opacity: 1, x: 0, scale: 1, duration: 1, ease: "power3.out" }, 
+          "-=0.2"
+        )
+        .fromTo(textElements, 
+          { opacity: 0, y: 50 },
+          { opacity: 1, y: 0, duration: 0.8, stagger: 0.2, ease: "power3.out" },
+          "-=0.5"
+        );
+        
+      // Featured animation with 3D element
+      if (isFeatured) {
+        const featured3DElement = sectionRef.current.querySelector(".featured-3d-element");
+        if (featured3DElement) {
+            gsap.fromTo(featured3DElement, 
+                { opacity: 0, scale: 0.5, rotationY: -90 },
+                { opacity: 1, scale: 1, rotationY: 0, duration: 1, ease: "elastic.out(1, 0.5)", delay: 0.5,
+                  scrollTrigger: {
+                    trigger: sectionRef.current,
+                    start: "top 60%",
+                    toggleActions: "play none none reverse",
+                  }
+                }
+            );
         }
       }
-    );
-  }, []);
+    }
+  }, [index, isFeatured]);
 
   return (
-    <div ref={cardRef} className="group bg-background-alt p-8 rounded-xl shadow-lg hover:shadow-primary/40 transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-start">
-      <div className="relative w-full h-48 mb-6 rounded-lg overflow-hidden">
-        <Image src={imageSrc} alt={title} layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300" />
+    <section 
+      ref={sectionRef} 
+      className={`service-showcase-item min-h-[80vh] md:min-h-screen py-16 md:py-24 px-6 md:px-12 flex items-center ${index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-850'} overflow-hidden relative`}>
+      <div className={`container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center ${index % 2 === 0 ? '' : 'md:grid-flow-row-dense'}`}>
+        <div className={`service-image-container relative w-full h-[300px] md:h-[500px] rounded-lg overflow-hidden shadow-2xl ${index % 2 === 0 ? 'md:order-1' : 'md:order-2'}`}>
+          <Image src={imageSrc} alt={imageAlt} layout="fill" objectFit="cover" className="transform transition-transform duration-1000 ease-out group-hover:scale-110" />
+           {isFeatured && (
+            <div className="featured-3d-element absolute inset-0 flex items-center justify-center opacity-0">
+              <Canvas style={{ width: '60%', height: '60%' }} camera={{ position: [0, 0, 5], fov: 45 }}>
+                <ambientLight intensity={0.7} />
+                <pointLight position={[5, 5, 5]} intensity={1} />
+                <Suspense fallback={null}>
+                  <TorusKnot args={[1, 0.3, 128, 16]} scale={0.8}>
+                    <meshStandardMaterial color="#8A2BE2" emissive="#4B0082" roughness={0.1} metalness={0.7} wireframe={false} />
+                  </TorusKnot>
+                </Suspense>
+              </Canvas>
+            </div>
+          )}
+        </div>
+        <div className={`service-text-content ${index % 2 === 0 ? 'md:order-2' : 'md:order-1'}`}>
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-purple-400 leading-tight">{title}</h2>
+          <p className="text-gray-300 mb-6 text-lg md:text-xl leading-relaxed">{description}</p>
+          <ul className="list-none space-y-3 mb-8">
+            {benefits.map((benefit, idx) => (
+              <li key={idx} className="flex items-start text-gray-400">
+                <svg className="w-5 h-5 mr-3 mt-1 text-purple-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
+                {benefit}
+              </li>
+            ))}
+          </ul>
+          <Link href={learnMoreLink} legacyBehavior>
+            <a className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-8 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 text-lg">
+              Discover More
+            </a>
+          </Link>
+        </div>
       </div>
-      <div className="mb-4 p-3 bg-primary/10 rounded-full">
-        <AnimatedServiceIcon iconType={iconType} />
-      </div>
-      <h3 className="text-2xl md:text-3xl font-bold text-primary-dark mb-3 font-display">{title}</h3>
-      <p className="text-text/80 leading-relaxed text-left">{description}</p>
-    </div>
+    </section>
   );
 };
 
-// Main Services Page Component
+
 const ServicesPage = () => {
-  const pageTitleRef = useRef<HTMLHeadingElement>(null);
-  const introTextRef = useRef<HTMLParagraphElement>(null);
-  const horizontalScrollRef = useRef<HTMLDivElement>(null);
-  const horizontalContainerRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
 
   useEffect(() => {
@@ -80,163 +137,191 @@ const ServicesPage = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // GSAP Animations for page title and intro text
   useEffect(() => {
-    if (isReducedMotion) return;
-    if (pageTitleRef.current) {
-      gsap.from(pageTitleRef.current, { opacity: 0, y: -50, duration: 1, ease: "power3.out", delay: 0.3 });
+    if (isReducedMotion || !pageRef.current) return;
+
+    const heroTitle = pageRef.current.querySelector(".hero-title");
+    const heroSubtitle = pageRef.current.querySelector(".hero-subtitle");
+    const heroCta = pageRef.current.querySelector(".hero-cta-button");
+
+    if (heroTitle) {
+      const splitHeadline = new SplitText(heroTitle, { type: "words,chars" });
+      gsap.from(splitHeadline.chars, {
+        duration: 0.8, opacity: 0, y: 30, ease: "power3.out", stagger: 0.04, delay: 0.3
+      });
     }
-    if (introTextRef.current) {
-      gsap.from(introTextRef.current, { opacity: 0, y: 50, duration: 1, ease: "power3.out", delay: 0.6 });
+    if (heroSubtitle) {
+      gsap.from(heroSubtitle, {
+        duration: 1, opacity: 0, y: 20, ease: "power3.out", delay: 0.7
+      });
     }
+     if (heroCta) {
+      gsap.from(heroCta, {
+        duration: 1, opacity: 0, y: 20, ease: "bounce.out", delay: 1.0
+      });
+    }
+    
+    const finalCtaSection = pageRef.current.querySelector(".final-cta-section");
+    if (finalCtaSection) {
+        gsap.fromTo(finalCtaSection.querySelectorAll("h2, p, a"),
+            { opacity:0, y:50 },
+            { opacity:1, y:0, stagger:0.2, duration:1, ease: "power3.out",
+                scrollTrigger: {
+                    trigger: finalCtaSection,
+                    start: "top 80%",
+                    toggleActions: "play none none reverse"
+                }
+            }
+        );
+    }
+
   }, [isReducedMotion]);
 
-  // Horizontal Scroll for a specific section
-  useEffect(() => {
-    if (isReducedMotion || !horizontalScrollRef.current || !horizontalContainerRef.current) return;
-
-    const sections = gsap.utils.toArray<HTMLElement>(".horizontal-panel");
-    if (sections.length === 0) return;
-
-    const scrollTween = gsap.to(sections, {
-      xPercent: -100 * (sections.length - 1),
-      ease: "none",
-      scrollTrigger: {
-        trigger: horizontalContainerRef.current, // The container that pins
-        pin: true,
-        scrub: 0.5,
-        snap: 1 / (sections.length - 1),
-        end: () => "+=" + (horizontalScrollRef.current!.offsetWidth - window.innerWidth),
-        // markers: true, // For debugging
-      }
-    });
-    return () => {
-      scrollTween.kill();
-      // Ensure to check if horizontalContainerRef.current exists before accessing it in cleanup
-      const currentTrigger = horizontalContainerRef.current;
-      ScrollTrigger.getAll().forEach(st => { if(st.trigger === currentTrigger) st.kill() });
-    };
-  }, [isReducedMotion]);
-
-  const coreServices = [
+  const servicesData: Omit<ServiceShowcaseProps, 'index'>[] = [
     {
-      title: "Strategic Digital Blueprinting",
-      description: "We don't just execute; we architect. Our process begins with a deep dive into your brand, market, and objectives to forge a bespoke digital strategy. This comprehensive blueprint acts as your North Star, guiding every subsequent action to ensure cohesive, impactful, and measurable results across all digital touchpoints. From market research and competitor analysis to audience segmentation and journey mapping, we lay the groundwork for sustainable digital supremacy.",
-      iconType: "strategy",
-      imageSrc: "/assets/services/estrategia.jpg"
+      title: "Paid Traffic Management (Meta Ads + Google Ads)",
+      description: "Amplify your reach and ROI with meticulously crafted ad campaigns on Meta and Google. Our data-centric strategies pinpoint your ideal demographic, supercharge conversions, and drive sustainable business expansion.",
+      benefits: [
+        "Precision audience hyper-segmentation",
+        "Relentless A/B testing & iterative optimization",
+        "Crystal-clear reporting & actionable performance insights",
+        "Exponential growth in qualified leads & sales"
+      ],
+      imageSrc: "/assets/services/paid_traffic.jpg",
+      imageAlt: "Dynamic graph showing ad performance",
+      isFeatured: true,
+      learnMoreLink: "/services/paid-traffic"
     },
     {
-      title: "Precision-Targeted Paid Traffic",
-      description: "Leverage the full power of paid media with campaigns meticulously engineered for maximum ROI. Our experts navigate the complexities of Google Ads, Meta Ads, LinkedIn Ads, and emerging platforms, employing data-driven insights and continuous optimization. We transform ad spend into tangible conversions, driving qualified leads and accelerating your sales pipeline with unparalleled precision and efficiency.",
-      iconType: "traffic",
-      imageSrc: "/assets/services/trafego.jpg"
+      title: "High-Conversion Landing Page Creation",
+      description: "Convert casual browsers into committed customers with bespoke landing pages engineered for peak performance. We fuse compelling narrative, intuitive user experience, and persuasive visual design to catapult your conversion rates.",
+      benefits: [
+        "Tailor-made designs reflecting your unique brand identity",
+        "Flawlessly responsive, mobile-first architecture",
+        "Blazing-fast load times & superior user experience",
+        "Irresistible CTAs & streamlined lead capture mechanisms"
+      ],
+      imageSrc: "/assets/services/landing_pages.jpg", 
+      imageAlt: "Stunning landing page design example",
+      learnMoreLink: "/services/landing-pages"
     },
     {
-      title: "Organic Dominance via Advanced SEO",
-      description: "Ascend search engine rankings and capture sustained organic traffic with our holistic SEO strategies. We combine technical on-page optimization, authoritative content creation, strategic link building, and local SEO mastery to enhance your visibility and credibility. Our approach ensures your brand is not just found, but preferred, establishing long-term digital authority in your niche.",
-      iconType: "seo",
-      imageSrc: "/assets/services/seo.jpg"
-    }
-  ];
-
-  const specializedServices = [
-    {
-      title: "Immersive Content & Storytelling",
-      description: "Captivate your audience with compelling narratives and high-impact content that resonates and converts. From cinematic video production and interactive web experiences to persuasive copywriting and engaging social media content, we craft stories that elevate your brand and foster deep customer loyalty. Our content isn't just seen; it's experienced.",
-      iconType: "content",
-      imageSrc: "/assets/services/conteudo.jpg"
+      title: "WhatsApp Automation & Intelligent Sales Funnels",
+      description: "Unlock the potential of WhatsApp for hyper-personalized customer journeys and automated sales mastery. We construct intelligent chatbots and sophisticated funnels that nurture prospects and convert leads, 24/7.",
+      benefits: [
+        "Automated lead scoring & dynamic follow-up sequences",
+        "Elevated customer support & proactive engagement",
+        "Seamless CRM & marketing stack integration",
+        "Dramatically increased sales velocity & operational scalability"
+      ],
+      imageSrc: "/assets/services/whatsapp_automation.jpg",
+      imageAlt: "Illustration of WhatsApp automation flow",
+      learnMoreLink: "/services/whatsapp-automation"
     },
     {
-      title: "Web3 & Emerging Tech Integration",
-      description: "Navigate the next digital frontier with confidence. 3PWeb specializes in integrating Web3 technologies, including blockchain, NFTs, and metaverse experiences, into your marketing strategy. We also harness the power of AI for advanced analytics, personalized customer journeys, and automated efficiencies, future-proofing your brand and unlocking new dimensions of engagement.",
-      iconType: "tech",
-      imageSrc: "/assets/services/tech.jpg"
+      title: "SEO Consulting & Authority-Building Content Strategy",
+      description: "Ascend search engine summits and attract a torrent of organic traffic with our elite SEO counsel and scalable content ecosystems. We architect a resilient foundation for enduring growth and digital dominance.",
+      benefits: [
+        "Forensic keyword intelligence & competitive landscape analysis",
+        "Comprehensive technical SEO audits & remediation",
+        "Premium, resonant content that captivates & converts",
+        "Strategic link acquisition & digital PR for authority"
+      ],
+      imageSrc: "/assets/services/seo_content.jpg",
+      imageAlt: "Graph showing SEO growth",
+      learnMoreLink: "/services/seo-consulting"
     },
     {
-      title: "Global Expansion & Market Entry",
-      description: "Positioned in the global hub of Dubai, we are your strategic partners for international growth. Our expertise in cross-cultural marketing, localized campaign execution, and navigating diverse regulatory landscapes empowers your brand to successfully penetrate new markets and achieve global resonance. We turn ambition into international market leadership.",
-      iconType: "global",
-      imageSrc: "/assets/services/global.jpg"
-    }
+      title: "Visual Identity & Immersive Digital Branding",
+      description: "Forge an unforgettable brand identity that captivates your target audience and commands market presence. We sculpt holistic visual systems, from iconic logos to comprehensive brand guidelines, ensuring unwavering consistency and powerful recognition across every digital frontier.",
+      benefits: [
+        "Unique, compelling brand narratives that resonate deeply",
+        "World-class logo design & cohesive visual asset creation",
+        "Consistent, impactful brand voice & messaging strategy",
+        "Cultivation of profound brand loyalty & market distinction"
+      ],
+      imageSrc: "/assets/services/branding.jpg",
+      imageAlt: "Showcase of a strong brand identity",
+      learnMoreLink: "/services/digital-branding"
+    },
+    {
+      title: "Strategic Immersion for Local Market Dominance",
+      description: "Empower your local enterprise with bespoke digital marketing blueprints engineered for neighborhood supremacy. We deploy laser-focused local SEO, geo-targeted advertising, and authentic community engagement to drive tangible foot traffic and amplify local sales.",
+      benefits: [
+        "Pristinely optimized Google Business Profiles & local listings",
+        "Hyper-efficient localized paid advertising campaigns",
+        "Proactive reputation management & customer review cultivation",
+        "Authentic hyperlocal content & robust community building"
+      ],
+      imageSrc: "/assets/services/local_business.jpg",
+      imageAlt: "Map highlighting local business reach",
+      learnMoreLink: "/services/local-strategy"
+    },
   ];
 
   return (
-    <div className="bg-background text-text min-h-screen">
-      {/* Hero Section for Services Page */}
-      <section className="relative py-20 md:py-32 text-center bg-gradient-to-b from-background-dark to-background overflow-hidden">
-        <div className="absolute inset-0 opacity-10 z-0">
-          <Suspense fallback={null}>
-            <Canvas>
-              <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-              {/* <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.2} /> */}
-            </Canvas>
-          </Suspense>
-        </div>
-        <div className="container mx-auto px-4 relative z-10">
-          <h1 ref={pageTitleRef} className="font-display text-5xl sm:text-6xl md:text-7xl font-bold text-primary mb-6">
-            Our Services: Architecting Digital Excellence
-          </h1>
-          <p ref={introTextRef} className="text-lg md:text-xl lg:text-2xl text-text/80 max-w-3xl mx-auto">
-            At 3PWeb, we offer a symphony of specialized digital marketing services, meticulously orchestrated to elevate your brand and achieve unparalleled growth. Discover how our expertise can transform your digital presence.
-          </p>
-        </div>
-      </section>
-
-      {/* Core Services Section - Standard Vertical Scroll */}
-      <section className="py-16 md:py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-primary-dark mb-16 text-center font-display">Core Digital Accelerators</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
-            {coreServices.map((service, index) => (
-              <ServiceCard key={`core-${index}`} {...service} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Horizontal Scroll Section for Specialized Services */}
-      <section ref={horizontalContainerRef} className="h-screen bg-background-alt overflow-hidden">
-        <div ref={horizontalScrollRef} className="flex w-max h-full">
-          {/* Panel 1: Intro to Specialized Services */}
-          <div className="horizontal-panel w-screen h-full flex flex-col items-center justify-center text-center p-8 md:p-16 bg-gradient-to-r from-primary-dark to-accent">
-            <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-background mb-8 font-display animate-in-horizontal">
-              Beyond the Horizon: Specialized Solutions
-            </h2>
-            <p className="text-xl md:text-2xl text-background/90 max-w-2xl mx-auto animate-in-horizontal delay-200">
-              We delve deeper, offering cutting-edge services that push boundaries and define market leadership. Explore our innovative capabilities designed for visionary brands.
-            </p>
-          </div>
-
-          {/* Panels for each specialized service */}
-          {specializedServices.map((service, index) => (
-            <div key={`specialized-${index}`} className="horizontal-panel w-screen h-full flex items-center justify-center p-8 md:p-16 bg-background-alt">
-              <div className="max-w-4xl w-full grid md:grid-cols-2 gap-8 items-center">
-                <div className="relative w-full h-64 md:h-96 rounded-xl overflow-hidden shadow-2xl animate-in-horizontal">
-                  <Image src={service.imageSrc} alt={service.title} layout="fill" objectFit="cover" />
-                </div>
-                <div className="text-left animate-in-horizontal delay-300">
-                  <div className="mb-4 p-3 bg-accent/10 rounded-full w-max">
-                     <AnimatedServiceIcon iconType={service.iconType} />
-                  </div>
-                  <h3 className="text-3xl md:text-4xl font-bold text-accent mb-4 font-display">{service.title}</h3>
-                  <p className="text-text/80 leading-relaxed">{service.description}</p>
-                </div>
-              </div>
+    <div ref={pageRef} className="min-h-screen bg-gray-900 text-gray-100 font-sans selection:bg-purple-500 selection:text-white overflow-x-hidden">
+      <section className="min-h-[70vh] md:min-h-screen py-20 md:py-32 px-6 flex flex-col items-center justify-center text-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 relative overflow-hidden">
+        {!isReducedMotion && (
+            <div className="absolute inset-0 z-0 opacity-20">
+                <Canvas camera={{ position: [0, 0, 5], fov: 70 }}>
+                    <ambientLight intensity={0.3} />
+                    <pointLight position={[0, 10, 10]} intensity={0.7} color="#8A2BE2" />
+                    <Suspense fallback={null}>
+                        <Stars radius={200} depth={80} count={7000} factor={6} saturation={0} fade speed={1.5} />
+                    </Suspense>
+                </Canvas>
             </div>
-          ))}
+        )}
+        <div className="relative z-10 max-w-4xl">
+            <h1 className="hero-title text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+                Our Digital Arsenal
+            </h1>
+            <p className="hero-subtitle text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto text-gray-300 mb-10 leading-relaxed">
+                Unleash unparalleled growth with 3PWeb&apos;s suite of transformative services. We fuse strategic foresight, creative brilliance, and technological mastery to architect your digital triumph.
+            </p>
+            <Link href="#services-showcase" legacyBehavior>
+                <a className="hero-cta-button inline-block bg-white text-purple-700 font-bold text-lg py-4 px-12 rounded-lg shadow-xl hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl">
+                    Explore Our Solutions
+                </a>
+            </Link>
         </div>
       </section>
 
-      {/* Call to Action Section */}
-      <section className="py-20 md:py-32 bg-background text-center">
-        <div className="container mx-auto px-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-primary mb-6 font-display">Ready to Elevate Your Digital Reality?</h2>
-          <p className="text-lg md:text-xl text-text/80 max-w-2xl mx-auto mb-10">
-            Partner with 3PWeb and let us architect a digital strategy that not only meets your goals but redefines what&apos;s possible. Your journey to digital excellence starts here.
-          </p>
-          <a href="/contact" className="bg-accent hover:bg-accent/90 text-background font-semibold py-4 px-10 rounded-lg text-xl transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-accent/50">
-            Consult Our Experts
-          </a>
+      <div id="services-showcase">
+        {servicesData.map((service, index) => (
+          <ServiceShowcaseSection key={service.title} {...service} index={index} />
+        ))}
+      </div>
+      
+      <section className="final-cta-section py-20 md:py-32 px-6 text-center bg-gradient-to-tr from-purple-700 via-pink-700 to-red-700 relative">
+         {!isReducedMotion && (
+            <div className="absolute inset-0 z-0 opacity-15">
+                <Canvas camera={{ position: [0, 0, 8], fov: 50 }}>
+                    <ambientLight intensity={0.5} />
+                    <directionalLight position={[10,10,5]} intensity={0.5} />
+                    <Suspense fallback={null}>
+                        <TorusKnot args={[10, 1, 256, 32]} rotation={[0.5,0.5,0]} scale={0.3}>
+                             <meshStandardMaterial color="#FFFFFF" emissive="#CCCCCC" roughness={0.5} metalness={0.2} wireframe opacity={0.3} transparent />
+                        </TorusKnot>
+                    </Suspense>
+                </Canvas>
+            </div>
+        )}
+        <div className="relative z-10 max-w-3xl mx-auto">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+                Ready to Ignite Your Business&apos;s Marketing Engine?
+            </h2>
+            <p className="text-xl md:text-2xl text-gray-100 mb-10 leading-relaxed">
+                Connect with a 3PWeb strategist today. Let&apos;s co-create your brand&apos;s extraordinary digital future.
+            </p>
+            <Link href="https://wa.me/5511992914799?text=Hello%203PWeb%2C%20I&apos;d%20like%20to%20discuss%20my%20marketing%20needs."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block bg-white text-purple-700 font-bold text-lg py-4 px-12 rounded-lg shadow-xl hover:bg-gray-200 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
+            >
+                Speak With An Expert
+            </Link>
         </div>
       </section>
     </div>

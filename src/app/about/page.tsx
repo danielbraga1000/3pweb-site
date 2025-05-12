@@ -1,18 +1,10 @@
-// Metadata for SEO
-export async function generateMetadata() {
-  return {
-    title: "About Us | 3PWeb - Pioneering Digital Futures",
-    description: "Discover the mission, vision, and innovative spirit of 3PWeb. We are a modern digital marketing agency crafting impactful experiences and driving growth through strategy, technology, and creativity.",
-  };
-}
-
 "use client";
 
 import React, { Suspense, useEffect, useRef, useState } from "react";
-import Head from "next/head";
 import Image from "next/image";
+import * as THREE from "three"; // Added import for THREE namespace
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Sphere, Icosahedron, TorusKnot, Stars } from "@react-three/drei";
+import { Sphere, Icosahedron, TorusKnot, Stars } from "@react-three/drei";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
@@ -54,7 +46,7 @@ const AboutPage = () => {
 
     // GSAP Animations
     const sections = gsap.utils.toArray<HTMLElement>(".content-section");
-    sections.forEach((section, index) => {
+    sections.forEach((section) => { // Removed unused 'index' parameter
       gsap.fromTo(section, 
         { opacity: 0, y: 100 }, 
         {
