@@ -1,169 +1,286 @@
 "use client";
 
-import React, { Suspense, useRef, useEffect } from 'react';
+import React, { Suspense, useRef, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ScrollControls, Scroll, useScroll, Image as DreiImage, Text as DreiText } from '@react-three/drei';
-import { Lenis, useLenis } from "@studio-freight/react-lenis";
+import { ScrollControls, useScroll, Icosahedron as DreiIcosahedron } from '@react-three/drei'; // Removed Scroll, Html
+// Removed useLenis as it's not used in this specific file structure for horizontal scroll
 import * as THREE from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
+import SplitText from 'gsap/SplitText';
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, SplitText);
 
-// Placeholder for individual sections within the horizontal scroll
-const AboutSection = ({ title, children, image, imagePosition = 'right' }: {
+interface AboutPanelProps {
   title: string;
   children: React.ReactNode;
   image?: string;
   imagePosition?: 'left' | 'right';
-}) => {
+  panelId: string;
+  bgColor?: string;
+}
+
+const AboutPanel: React.FC<AboutPanelProps> = ({ title, children, image, imagePosition = 'right', panelId, bgColor = 'bg-background' }) => {
   const sectionRef = useRef<HTMLDivElement>(null!);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
 
   useEffect(() => {
-    if (sectionRef.current) {
-      gsap.fromTo(sectionRef.current.querySelectorAll(".animate-in"), 
-        { opacity: 0, y: 50 }, 
-        {
-          opacity: 1, y: 0, stagger: 0.2, duration: 0.8, ease: "power3.out",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 80%", // Start animation when 80% of the section is in view
-            // toggleActions: "play none none reverse", // Optional: reverse animation on scroll out
-          }
-        }
-      );
-    }
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setIsReducedMotion(mediaQuery.matches);
+    const handleChange = () => setIsReducedMotion(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  useEffect(() => {
+    if (isReducedMotion || !sectionRef.current) return;
+
+    const elementsToAnimate = sectionRef.current.querySelectorAll(".animate-in");
+    const titleElement = sectionRef.current.querySelector(".panel-title");
+
+    if (titleElement && panelId === "panel-1") { // Specific animation for Panel 1 title
+      const split = new SplitText(titleElement, { type: "chars,words" });
+      gsap.from(split.chars, {
+        opacity: 0,
+        x: -50,
+        stagger: 0.05,
+        duration: 0.8,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          containerAnimation: ScrollTrigger.getById("mainScroll"), // Link to horizontal scroll animation
+          start: "left 80%", // Trigger when 80% of the panel is in view from the left
+          toggleActions: "play none none none",
+        }
+      });
+    } else if (titleElement) {
+       gsap.from(titleElement, { 
+        opacity: 0, y: 50, duration: 0.8, ease: "power3.out", 
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          containerAnimation: ScrollTrigger.getById("mainScroll"),
+          start: "left 80%", 
+          toggleActions: "play none none none",
+        }
+      });
+    }
+    
+    elementsToAnimate.forEach((el, index) => {
+      if (el === titleElement && panelId === "panel-1") return; // Skip if it's panel 1 title (already animated)
+      gsap.from(el, {
+        opacity: 0,
+        y: panelId === "panel-2" ? 0 : 50, // No y-offset for panel 2 cards, they stagger in
+        x: panelId === "panel-2" ? 20 : 0, // x-offset for panel 2 cards
+        duration: 0.8,
+        ease: "power3.out",
+        stagger: panelId === "panel-2" ? 0.2 : 0, // Stagger for panel 2 cards
+        delay: panelId !== "panel-1" && el === titleElement ? 0 : (panelId === "panel-2" ? 0.3 + index * 0.1 : 0.3), // Delay for non-title elements or panel 2 cards
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          containerAnimation: ScrollTrigger.getById("mainScroll"),
+          start: "left 75%",
+          toggleActions: "play none none none",
+        }
+      });
+    });
+
+    if (panelId === "panel-4" && !isReducedMotion) {
+      const avatars = sectionRef.current.querySelectorAll<HTMLElement>(".team-avatar-container");
+      avatars.forEach(avatar => {
+        gsap.set(avatar.querySelector("img"), { transformOrigin: "center" });
+        avatar.addEventListener('mouseenter', () => gsap.to(avatar.querySelector("img"), { scale: 1.1, rotationY: 15, rotationX: -10, duration: 0.3, ease: "power2.out" }));
+        avatar.addEventListener('mouseleave', () => gsap.to(avatar.querySelector("img"), { scale: 1, rotationY: 0, rotationX: 0, duration: 0.3, ease: "power2.out" }));
+      });
+    }
+
+  }, [isReducedMotion, panelId]);
+
   return (
-    <div ref={sectionRef} className={`w-screen h-screen flex items-center justify-center p-8 md:p-16 snap-center ${imagePosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}>
-      <div className={`w-full md:w-1/2 ${imagePosition === 'left' ? 'md:pl-12' : 'md:pr-12'} flex flex-col justify-center`}>
-        <h2 className="text-4xl md:text-6xl font-bold mb-6 text-primary font-display animate-in">{title}</h2>
+    <div ref={sectionRef} className={`w-screen h-screen flex-shrink-0 flex items-center justify-center p-8 md:p-16 snap-center ${bgColor} ${image && imagePosition === 'left' ? 'flex-col md:flex-row-reverse' : 'flex-col md:flex-row'}`}>
+      <div className={`w-full md:w-1/2 ${image && (imagePosition === 'left' ? 'md:pl-8 lg:pl-16' : 'md:pr-8 lg:pr-16')} flex flex-col justify-center text-center md:text-left`}>
+        <h2 className="panel-title text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-primary font-display">{title}</h2>
         <div className="text-lg md:text-xl text-text/90 space-y-4 animate-in">
           {children}
         </div>
       </div>
       {image && (
-        <div className="hidden md:flex w-1/2 h-full items-center justify-center animate-in">
-          {/* Placeholder for a 3D interactive image or model later */}
-          <img src={image} alt={title} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+        <div className="w-full md:w-1/2 h-1/2 md:h-full flex items-center justify-center mt-8 md:mt-0 animate-in">
+          {isReducedMotion ? (
+            <img src={image} alt={title} className="max-w-full max-h-[50vh] md:max-h-[60vh] object-contain rounded-lg shadow-2xl" />
+          ) : (
+            <div className="w-full h-full relative">
+              {/* Placeholder for more complex 3D image/scene if needed, for now, simple image */}
+              <img src={image} alt={title} className="max-w-full max-h-[50vh] md:max-h-[60vh] object-contain rounded-lg shadow-2xl" />
+              {panelId === "panel-3" && <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-lg"></div>}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// Main About Page Component
-const AboutPageContent = () => {
-  const { width, height } = useThree(state => state.viewport);
-  const scroll = useScroll(); // Drei's scroll hook for R3F scroll-based animations
+const Background3DScene = () => {
+  const { viewport } = useThree(); // Removed size as it's not used
+  const scroll = useScroll();
+  const icosahedronRef = useRef<THREE.Mesh>(null!);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
 
-  // Example: Animate a 3D object based on scroll
-  const FloatingObject = () => {
-    const mesh = useRef<THREE.Mesh>(null!);
-    useFrame(() => {
-      if (mesh.current) {
-        // scroll.offset gives a value from 0 to 1 based on scroll progress
-        mesh.current.rotation.x = scroll.offset * Math.PI * 2;
-        mesh.current.rotation.y = scroll.offset * Math.PI * 1.5;
-        mesh.current.position.z = Math.sin(scroll.offset * Math.PI * 2) * 2;
-      }
-    });
-    return (
-      <mesh ref={mesh} position={[width / 4, -height / 3, -1]}>
-        <icosahedronGeometry args={[0.5, 0]} />
-        <meshStandardMaterial color="#2ECC71" emissive="#27AE60" roughness={0.2} metalness={0.7} />
-      </mesh>
-    );
-  };
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setIsReducedMotion(mediaQuery.matches);
+    const handleChange = () => setIsReducedMotion(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useFrame(() => {
+    if (isReducedMotion || !icosahedronRef.current) return;
+    const progress = scroll.offset;
+    icosahedronRef.current.position.x = gsap.utils.mapRange(0, 1, -viewport.width / 1.5, viewport.width * 1.5, progress);
+    icosahedronRef.current.position.y = Math.sin(progress * Math.PI * 2) * 0.5; // Gentle bobbing
+    icosahedronRef.current.rotation.x = progress * Math.PI * 1;
+    icosahedronRef.current.rotation.y = progress * Math.PI * 1.5;
+    icosahedronRef.current.rotation.z = progress * Math.PI * 0.5;
+  });
+
+  if (isReducedMotion) return null;
 
   return (
-    <Scroll>
-      {/* This is where the 3D scene for the About page will live */}
-      {/* For now, a simple floating object */}
-      <FloatingObject />
-      {/* You can add more 3D elements here that react to scroll */}
-    </Scroll>
+    <DreiIcosahedron ref={icosahedronRef} args={[0.8, 1]} position={[0, 0, -3]}>
+      <meshStandardMaterial color="#2ECC71" emissive="#27AE60" roughness={0.3} metalness={0.1} transparent opacity={0.6} wireframe={false} />
+    </DreiIcosahedron>
   );
 };
 
 export default function AboutPage() {
-  const containerRef = useRef<HTMLDivElement>(null!);
-  const lenisRef = useRef<any>(null);
+  const mainContainerRef = useRef<HTMLDivElement>(null!);
+  const horizontalScrollContainerRef = useRef<HTMLDivElement>(null!);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
 
   useEffect(() => {
-    if (lenisRef.current && containerRef.current) {
-      const sections = gsap.utils.toArray(".snap-center") as HTMLElement[];
-      if (sections.length === 0) return;
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
 
-      // Horizontal scroll with GSAP ScrollTrigger
-      // This setup assumes your Lenis instance is handling the main scroll.
-      // For a pure GSAP horizontal scroll, you might need a different setup or to disable Lenis on this page.
-      // This is a simplified example; Lusion's effect is more complex and tightly integrated.
-      
-      let ctx = gsap.context(() => {
-        gsap.to(sections, {
-          xPercent: -100 * (sections.length - 1),
-          ease: "none",
-          scrollTrigger: {
-            trigger: containerRef.current,
-            pin: true,
-            scrub: 1,
-            snap: {
-              snapTo: 1 / (sections.length - 1),
-              duration: { min: 0.2, max: 0.5 },
-              delay: 0.1,
-              ease: "power1.inOut"
-            },
-            end: () => "+=" + (containerRef.current.offsetWidth * (sections.length -1 )),
-            // markers: true, // for debugging
-          }
-        });
-      }, containerRef);
-      return () => ctx.revert();
-    }
+    const mediaQueryReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setIsReducedMotion(mediaQueryReducedMotion.matches);
+    const handleChangeReducedMotion = () => setIsReducedMotion(mediaQueryReducedMotion.matches);
+    mediaQueryReducedMotion.addEventListener('change', handleChangeReducedMotion);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      mediaQueryReducedMotion.removeEventListener('change', handleChangeReducedMotion);
+    };
   }, []);
 
+  useEffect(() => {
+    if (isMobile || isReducedMotion || !horizontalScrollContainerRef.current || !mainContainerRef.current) return;
+
+    const sections = gsap.utils.toArray<HTMLElement>(".snap-center");
+    if (sections.length === 0) return;
+
+    const scrollTween = gsap.to(sections, {
+      xPercent: -100 * (sections.length - 1),
+      ease: "none",
+      scrollTrigger: {
+        trigger: mainContainerRef.current, // The main viewport height container
+        pin: true,
+        scrub: 0.5,
+        snap: {
+          snapTo: 1 / (sections.length - 1),
+          duration: { min: 0.2, max: 0.5 },
+          delay: 0.1,
+          ease: "power1.inOut"
+        },
+        end: () => "+=" + (horizontalScrollContainerRef.current.offsetWidth - window.innerWidth),
+        id: "mainScroll", // ID for other ScrollTriggers to link to
+        // markers: true, // For debugging
+      }
+    });
+    return () => {
+      scrollTween.kill();
+      ScrollTrigger.getAll().forEach(st => st.kill()); // Clean up all ScrollTriggers
+    };
+  }, [isMobile, isReducedMotion]);
+
+  if (isMobile || isReducedMotion) {
+    // Vertical Layout for Mobile / Reduced Motion
+    return (
+      <div className="flex flex-col bg-background">
+        <AboutPanel panelId="panel-1" title="Our Genesis" bgColor="bg-background-alt">
+          <p>3PWeb was forged in the vibrant innovation hub of Dubai, born from a collective ambition to redefine digital frontiers. We envisioned a future where technology and creativity intertwine, crafting online experiences that are not just viewed, but felt. Our journey started with a dedicated team, passionate about pushing the limits of web development and AI-driven marketing, aiming to deliver transformative results for a global clientele. We believe in the power of immersive storytelling to connect brands with their audiences in truly meaningful ways.</p>
+        </AboutPanel>
+        <AboutPanel panelId="panel-2" title="Mission & Vision" bgColor="bg-background">
+          <ul className="list-disc list-inside space-y-3">
+            <li><strong>Mission:</strong> To empower businesses with pioneering AI and Web3 marketing solutions, creating unparalleled digital engagement and measurable growth on a global scale.</li>
+            <li><strong>Vision:</strong> To be the leading architect of immersive digital futures, where every interaction is an opportunity for profound connection and brand elevation.</li>
+            <li>We strive to make cutting-edge technology accessible and impactful, transforming complex challenges into elegant, user-centric digital experiences that captivate and convert.</li>
+          </ul>
+        </AboutPanel>
+        <AboutPanel panelId="panel-3" title="Dubai Hub Advantage" image={isReducedMotion ? "/assets/about/skyline.jpg" : undefined} bgColor="bg-background-alt">
+          <p>Strategically based in Dubai, 3PWeb leverages the city&apos;s dynamic ecosystem, world-class infrastructure, and status as a global nexus for innovation. The forward-thinking regulatory environment and proactive support for tech enterprises, particularly within its specialized free zones, provide an unparalleled launchpad for businesses aiming for international reach. This unique advantage allows us to connect our clients with diverse markets, fostering growth and opportunity at the very crossroads of the world, where East meets West and tradition meets tomorrow.</p>
+        </AboutPanel>
+        <AboutPanel panelId="panel-4" title="Team & Culture" bgColor="bg-background">
+          <p>Our strength lies in our diverse team of strategists, designers, developers, and AI specialists. We cultivate a culture of relentless innovation, radical transparency, and unwavering client-centricity. Collaboration is at our core, fostering an environment where creative ideas flourish and technical excellence is paramount. We are committed to continuous learning, adapting to the ever-evolving digital landscape to ensure our partners always stay ahead. Meet the minds dedicated to sculpting your digital success story with passion and precision.</p>
+          {isReducedMotion && (
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <img src="/assets/about/team1.jpg" alt="Team Member 1" className="rounded-lg shadow-md" />
+              <img src="/assets/about/team2.jpg" alt="Team Member 2" className="rounded-lg shadow-md" />
+              <img src="/assets/about/team3.jpg" alt="Team Member 3" className="rounded-lg shadow-md" />
+              <img src="/assets/about/team4.jpg" alt="Team Member 4" className="rounded-lg shadow-md" />
+            </div>
+          )}
+        </AboutPanel>
+      </div>
+    );
+  }
+
+  // Horizontal Scroll Layout for Desktop
   return (
-    <Lenis root options={{ lerp: 0.07, smoothWheel: true, orientation: 'horizontal', gestureOrientation: 'both' }} ref={lenisRef}>
-      <div ref={containerRef} className="w-full h-screen overflow-hidden"> {/* Main container for horizontal scroll */}
-        <div className="flex w-max h-screen"> {/* Inner container for all sections */}
-          <AboutSection title="Our Genesis" image="/assets/placeholder_image_1.jpg">
-            <p>3PWeb was born from a vision to redefine digital interaction. We saw a future where technology and creativity converge to create truly immersive online experiences. Our journey began with a small team of passionate innovators, driven by the desire to push the boundaries of what's possible in web development and digital marketing.</p>
-            <p>This section will narrate our founding story, inspirations, and the core philosophies that guide us. Expect dynamic visuals and subtle 3D elements that animate as you scroll, drawing you into our world.</p>
-          </AboutSection>
+    <div ref={mainContainerRef} className="w-full h-screen overflow-hidden bg-background">
+      <div ref={horizontalScrollContainerRef} className="flex w-max h-screen"> {/* Inner container for all sections */}
+        <AboutPanel panelId="panel-1" title="Our Genesis" bgColor="bg-background-alt">
+          <p>3PWeb was forged in the vibrant innovation hub of Dubai, born from a collective ambition to redefine digital frontiers. We envisioned a future where technology and creativity intertwine, crafting online experiences that are not just viewed, but felt. Our journey started with a dedicated team, passionate about pushing the limits of web development and AI-driven marketing, aiming to deliver transformative results for a global clientele. We believe in the power of immersive storytelling to connect brands with their audiences in truly meaningful ways.</p>
+        </AboutPanel>
+        <AboutPanel panelId="panel-2" title="Mission & Vision" bgColor="bg-background">
+          <ul className="list-none space-y-4">
+            <li className="animate-in"><strong className='text-primary-dark'>Mission:</strong> To empower businesses with pioneering AI and Web3 marketing solutions, creating unparalleled digital engagement and measurable growth on a global scale.</li>
+            <li className="animate-in"><strong className='text-primary-dark'>Vision:</strong> To be the leading architect of immersive digital futures, where every interaction is an opportunity for profound connection and brand elevation.</li>
+            <li className="animate-in">We strive to make cutting-edge technology accessible and impactful, transforming complex challenges into elegant, user-centric digital experiences that captivate and convert.</li>
+          </ul>
+        </AboutPanel>
+        <AboutPanel panelId="panel-3" title="Dubai Hub Advantage" image="/assets/about/skyline.jpg" bgColor="bg-background-alt">
+          <p>Strategically based in Dubai, 3PWeb leverages the city&apos;s dynamic ecosystem, world-class infrastructure, and status as a global nexus for innovation. The forward-thinking regulatory environment and proactive support for tech enterprises, particularly within its specialized free zones, provide an unparalleled launchpad for businesses aiming for international reach. This unique advantage allows us to connect our clients with diverse markets, fostering growth and opportunity at the very crossroads of the world, where East meets West and tradition meets tomorrow.</p>
+        </AboutPanel>
+        <AboutPanel panelId="panel-4" title="Team & Culture" bgColor="bg-background">
+          <p>Our strength lies in our diverse team of strategists, designers, developers, and AI specialists. We cultivate a culture of relentless <strong className='text-accent'>Innovation</strong>, radical <strong className='text-accent'>Transparency</strong>, and unwavering <strong className='text-accent'>Client-Centricity</strong>. Collaboration is at our core, fostering an environment where creative ideas flourish and technical excellence is paramount. We are committed to continuous learning, adapting to the ever-evolving digital landscape to ensure our partners always stay ahead. Meet the minds dedicated to sculpting your digital success story with passion and precision.</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="team-avatar-container animate-in aspect-square bg-gray-700 rounded-lg overflow-hidden shadow-lg perspective-1000">
+                <img src={`/assets/about/team${i}.jpg`} alt={`Team Member ${i}`} className="w-full h-full object-cover transition-transform duration-300 ease-out" />
+              </div>
+            ))}
+          </div>
+        </AboutPanel>
+      </div>
 
-          <AboutSection title="The Lusion Inspiration" image="/assets/placeholder_image_2.jpg" imagePosition="left">
-            <p>The groundbreaking work of studios like Lusion, particularly their innovative use of WebGL and interactive storytelling, serves as a significant source of inspiration for us. We aim to capture that same sense of wonder and technical excellence, adapting it to our unique brand and client needs.</p>
-            <p>Here, we'll delve into how we translate this inspiration into tangible results, creating websites that are not just visually stunning but also deeply engaging and performant. This section will feature interactive elements that respond to your mouse movements, hinting at the depth of our technical capabilities.</p>
-          </AboutSection>
-
-          <AboutSection title="Our Core Technologies" image="/assets/placeholder_image_3.jpg">
-            <p>At the heart of 3PWeb lies a commitment to leveraging cutting-edge technologies. We specialize in Next.js for robust and scalable applications, Three.js for breathtaking 3D visuals, GSAP for fluid animations, and Sanity CMS for flexible content management. This powerful stack allows us to build digital experiences that are both innovative and reliable.</p>
-            <p>This part of the journey will showcase our tech stack through interactive diagrams or abstract 3D representations, making complex concepts accessible and engaging. Scroll-triggered animations will reveal layers of information, highlighting our expertise.</p>
-          </AboutSection>
-          
-          <AboutSection title="Meet the Visionaries" image="/assets/placeholder_image_4.jpg" imagePosition="left">
-            <p>Our team is our greatest asset. Composed of designers, developers, strategists, and artists, we are a collective of creative minds dedicated to excellence. We believe in collaboration, continuous learning, and a client-centric approach to every project.</p>
-            <p>Discover the people behind 3PWeb. This section might feature stylized team member profiles with hover effects or a dynamic 3D representation of our collaborative spirit. The goal is to convey our passion and expertise through a human-centric lens.</p>
-          </AboutSection>
+      {/* 3D Background Canvas - only for non-mobile, non-reduced-motion */}
+      {!isMobile && !isReducedMotion && (
+        <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-[-1]">
+          <Suspense fallback={null}>
+            <Canvas shadows camera={{ position: [0, 0, 8], fov: 45 }}>
+              <ambientLight intensity={0.5} />
+              <pointLight position={[0, 5, 10]} intensity={1.2} />
+              <ScrollControls pages={4} horizontal damping={0.2} distance={1}>
+                <Background3DScene />
+              </ScrollControls>
+            </Canvas>
+          </Suspense>
         </div>
-      </div>
-
-      {/* The 3D Canvas for scroll-based animations. It's positioned absolutely to overlay the HTML content or integrate with it. */}
-      {/* For a true Lusion-like effect, the 3D scene would be more complex and directly tied to the horizontal scroll sections. */}
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-[-1]">
-        <Suspense fallback={null}>
-          <Canvas shadows camera={{ position: [0, 0, 5], fov: 50 }}>
-            <ambientLight intensity={0.5} />
-            <pointLight position={[0, 5, 5]} intensity={1.5} castShadow />
-            <ScrollControls pages={4} horizontal damping={0.3}> {/* `pages` should match number of sections */}
-              <AboutPageContent />
-            </ScrollControls>
-          </Canvas>
-        </Suspense>
-      </div>
-    </Lenis>
+      )}
+    </div>
   );
 }
 
